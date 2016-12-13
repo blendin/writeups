@@ -17,7 +17,7 @@ The **tinypad** global array of size 320 has 256 bytes allocated for swap space 
 
 ![](caps/tinypad.png)
 
-When a note is printed, the addr index of **tinypad**
+When a note is printed, the addr index of **tinypad** is checked. If it is set then the value in the pointer is printed.
 
 ```c
 //print notes
@@ -64,7 +64,7 @@ if (size) {
 }
 ```
 
-When a note is deleted
+When a note is deleted, the size index is check to make sure a note exists, the note is freed and the size is zeroed out, **but the addr is not zeroed out**.
 ```c
 //delete note
 notes = &tinypad[256];
@@ -153,7 +153,7 @@ In this picture `b2` is is the value in the fastbin, and `C` is the value in the
 Now we allocated `D`, overflowing the freed chunk `b2` with arbitrary values.  
 ![](caps/init_overflow.png)  
 
-Overflow this with the address of our fake free chunk we created in the **Setup** part of this document, just above the pointers in the **tinypad** array. A few things to note here, the fake fastbin needs to have the same size as the fastbin it is in.
+Overflow this with the address of our fake free chunk we created in the **Setup** part of this document, just above the pointers in the **tinypad** array. A few things to note here, to pass the integrity checks in libc the fake fastbin needs to have the same size as the fastbin it is in.  
 ![](caps/strategic_fastbin.png)
 
 Now we allocate two more notes that will have the size `0x50`, causing `malloc` to return the address in **tinypad**.
@@ -171,7 +171,13 @@ So with this we decided to overwrite the first note with the address of `environ
 
 ![](caps/smashed.png)  
 
-Now we use the value leaked from `environ` pointer to calculate the address of a return address, we chose the address `main` returns to when it is finished. Then we could edit the second note and overwrite the third note with the address pointing to the return address after main. Now when main finishes it will return to the value we just wrote.
+Now we use the value leaked from `environ` pointer to calculate the address of a return address, we chose the address `main` returns to when it is finished. Then we could edit the second note and overwrite the third note with the address pointing to the return address after main. Next we edit the third note whcih points to the stack (the return address after main). When main finishes it will return to the value we just wrote onto the stack.
+
+Before stack overwrite:  
+![](caps/before_overwrite.png)  
+
+After stack overwrite:  
+![](caps/layout.png)  
 
 ### Ropping
 Luckily for us one of libc's magic return addresses worked and we returned to that. Now after pressing **q** to quit the menu and program we get a shell.
